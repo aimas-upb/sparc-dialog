@@ -1,2 +1,2 @@
-# pepper-dialogues
-Enabling Pepper robot to engage in natural language interactions for elementary commands (movement, enable/disable behavior, etc).
+# sparc-dialogue
+Enabling robots in the SPARC project (Pepper, Tiago) to engage in natural language interactions for elementary commands (movement, enable/disable behavior, etc).
