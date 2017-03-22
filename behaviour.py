@@ -9,6 +9,8 @@ import sys
 import time
 import almath
 
+import topics as topic_module
+
 FACE_MAX_ATTEMPTS = 3
 topics = []
 topic_ids = []
@@ -70,7 +72,7 @@ class HumanTrackedEventWatcher(object):
         self.follow_handler.signal.connect(self.onFollowMe)
 
         #   load topics
-        topics = [topic_content_move]
+        topics = [topic_module.content_move]
 
         for topic in topics:
             tid = self.dialog.loadTopicContent(topic)
@@ -353,23 +355,7 @@ class HumanTrackedEventWatcher(object):
             sys.exit(0)
 
 
-topic_content_move = (
-        'topic: ~move_topic()\n'
-        'language: enu\n'
 
-        'concept: (direction) [forward back left right]\n'
-
-        'u:(move _~direction) I will move $1 $moveDir=$1\n'
-        
-        'u:(who am i) $reply=1\n'
-
-        'u:(follow me) $follow=1\n'
-        'u:(stop) $follow=0\n'
-
-        'u:(bye) bye $animate=1\n'
-
-        'u: (test two) hello from second topic\n'
-    )
 
 
 
