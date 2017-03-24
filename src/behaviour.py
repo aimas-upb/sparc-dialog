@@ -11,7 +11,7 @@ import almath
 
 import topics as topic_module
 
-FACE_MAX_ATTEMPTS = 3
+FACE_MAX_ATTEMPTS = 100
 topics = []
 topic_ids = []
 
@@ -46,9 +46,11 @@ class HumanTrackedEventWatcher(object):
         self.face_detect = session.service("ALFaceDetection")
         self.connect_callback("FaceDetected", self.on_face_detected)
         self.face_detect.subscribe("HumanTrackedEventWatcher")
+
+        self.face_detect.enableTracking(True)
         
         self.motion = session.service("ALMotion")
-        self.motion.setMotionConfig([["ENABLE_FOOT_CONTACT_PROTECTION", True]])
+        self.motion.setMotionConfig([["ENABLE_FOOT_CONTACT_PROTECTION", False]])
 
         self.tts = session.service("ALTextToSpeech")
 
@@ -94,8 +96,8 @@ class HumanTrackedEventWatcher(object):
         self.following = False
 
 
-        # self.bg_movement = session.service("ALBackgroundMovement")
-        # self.bg_movement.setEnabled(True)
+        self.bg_movement = session.service("ALBackgroundMovement")
+        self.bg_movement.setEnabled(True)
 
         self.basic_awareness = session.service("ALBasicAwareness")
         self.connect_callback("ALBasicAwareness/HumanTracked",
@@ -114,6 +116,8 @@ class HumanTrackedEventWatcher(object):
             self.tracker.registerTarget("Face", 0.1)
             self.tracker.track("Face")
             self.following = True
+
+            
         elif(value == "0" and self.got_person):
             print('Stop following')
             self.basic_awareness.setEngagementMode("SemiEngaged")
@@ -132,31 +136,36 @@ class HumanTrackedEventWatcher(object):
         if(len(self.person_name) > 0 and self.got_person):
             if(self.score >= 0.45):
                 self.tts.say("You are " + self.person_name)
-            elif(self.score >= 0.3 and self.score < 0.45):
-                self.tts.say("I am not sure who you are")
         else:
             self.tts.say("Sorry, but I do not know you")
 
 
     def onMoveCommand(self, value):
+        if(self.following):
+            return
+
         self.said = False
         print('Got move command')
         if(value == "forward"):
-            # self.basic_awareness.pauseAwareness()
+            self.basic_awareness.pauseAwareness()
             self.motion.moveTo(1,0,0)
             self.motion.waitUntilMoveIsFinished()
-            # self.basic_awareness.resumeAwareness()
+            self.basic_awareness.resumeAwareness()
         elif(value == "back"):
-            # self.basic_awareness.pauseAwareness()
+            self.basic_awareness.pauseAwareness()
             self.motion.moveTo(-1,0,0)
             self.motion.waitUntilMoveIsFinished()
-            # self.basic_awareness.resumeAwareness()
+            self.basic_awareness.resumeAwareness()
         elif(value == "left"):
+            self.basic_awareness.pauseAwareness()
             self.motion.moveTo(0,1,0)
             self.motion.waitUntilMoveIsFinished()
+            self.basic_awareness.resumeAwareness()
         elif(value == "right"):
+            self.basic_awareness.pauseAwareness()
             self.motion.moveTo(0,-1,0)
             self.motion.waitUntilMoveIsFinished()
+            self.basic_awareness.resumeAwareness()
 
     def onMoveFailed(self, value):
         if(self.following):
@@ -185,6 +194,8 @@ class HumanTrackedEventWatcher(object):
         self.subscribers_list.append(subscriber)
 
     def on_human_tracked(self, value):
+        if self.following:
+            return
         """ callback for event HumanTracked """
         #         #   RESET
         # self.got_face = False
@@ -218,12 +229,17 @@ class HumanTrackedEventWatcher(object):
 
 
     def detectedNewPerson(self):
+        if self.following:
+            return
+
         if len(self.person_name) <= 0:
             self.tts.say("Hello. Sorry, but I do not know you")
         else:
             self.tts.say("Hello, " + self.person_name)
 
     def on_face_detected(self, value):
+        if self.following:
+            return
         """
         Callback for event FaceDetected.
         """
@@ -253,7 +269,9 @@ class HumanTrackedEventWatcher(object):
                     self.person_name = faceExtraInfo[2]
                     print "ID :" + str(faceExtraInfo[0])
                     print "SCORE: " + str(faceExtraInfo[1])
+
                     self.score = faceExtraInfo[1]
+
                     if(self.score >= 0.45):
                         self.tts.say("Hello, " + self.person_name)
                     elif(self.score >= 0.3 and self.score < 0.45):
@@ -294,7 +312,7 @@ class HumanTrackedEventWatcher(object):
             # self.tracker.setMode("Move")
             self.tracker.stopTracker()
             self.tracker.unregisterAllTargets()
-            self.basic_awareness.setEngagementMode("SemiEngaged")
+            self.basic_awareness.setEngagementMode("FullyEngaged")
 
 
 
@@ -327,6 +345,8 @@ class HumanTrackedEventWatcher(object):
        # ##print("is face detected " + str(self.memory.getData(memory_key_2)))
         return self.memory.getData(memory_key)
 
+
+
     def run(self):
         #start
         self.motion.wakeUp()
@@ -342,7 +362,7 @@ class HumanTrackedEventWatcher(object):
             #stop
             self.basic_awareness.stopAwareness()
             self.stop_speech_reco()
-            self.motion.rest()
+            #self.motion.rest()
 
 
             self.dialog.unsubscribe('dialog_scenario')
@@ -358,22 +378,28 @@ class HumanTrackedEventWatcher(object):
 
 
 
-
+# main
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser()
+    
     parser.add_argument("--ip", type=str, default="127.0.0.1",
                         help="Robot IP address. On robot or Local Naoqi: use '127.0.0.1'.")
+    
     parser.add_argument("--port", type=int, default=9559,
                         help="Naoqi port number")
 
     args = parser.parse_args()
+    
     try:
         # Initialize qi framework.
         connection_url = "tcp://" + args.ip + ":" + str(args.port)
         app = qi.Application(["HumanTrackedEventWatcher", "--qi-url=" + connection_url])
+    
     except RuntimeError:
         print ("Can't connect to Naoqi at ip \"" + args.ip + "\" on port " + str(args.port) +".\n"
                "Please check your script arguments. Run with -h option for help.")
         sys.exit(1)
+    
     human_tracked_event_watcher = HumanTrackedEventWatcher(app)
     human_tracked_event_watcher.run()
