@@ -350,7 +350,6 @@ class DialogEvents(object):
 
                     if self.confidence >= 0.45:
                         self.tts.say("Hello, " + self.person_name)
-                        self.face_detection_done = True
 
                     # elif 0.3 <= self.confidence < 0.45:
                     #     self.tts.say("Hmmm. You look familiar")
